@@ -1,0 +1,5 @@
+name: TransmuterEnchant
+version: '${project.version}'
+main: io.github.palash201.transmuterenchant.TransmuterEnchant
+api-version: 1.18
+depend: [ UltraPrisonCore ]
