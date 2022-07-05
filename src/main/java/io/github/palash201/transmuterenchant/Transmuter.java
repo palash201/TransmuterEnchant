@@ -36,7 +36,6 @@ public class Transmuter extends UltraPrisonEnchantment {
      */
     public Transmuter() {
         super(UltraPrisonEnchants.getInstance(), 24);
-        this.reload();
     }
 
     private Material getBlockOrStone(String materialName) {
