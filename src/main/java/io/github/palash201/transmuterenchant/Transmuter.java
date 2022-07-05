@@ -80,7 +80,7 @@ public class Transmuter extends UltraPrisonEnchantment {
      */
     @Override
     public void onBlockBreak(BlockBreakEvent e, int enchantLevel) {
-        if (this.chance * (double) enchantLevel >= ThreadLocalRandom.current().nextDouble(100.0D)) {
+        if (this.chance >= ThreadLocalRandom.current().nextDouble(100.0D)) {
             Block brokenBlock = e.getBlock();
             IWrappedRegion mineRegion = RegionUtils.getMineRegionWithHighestPriority(brokenBlock.getLocation());
             if (mineRegion != null) {
