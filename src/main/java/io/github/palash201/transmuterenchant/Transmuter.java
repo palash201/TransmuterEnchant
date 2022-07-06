@@ -2,6 +2,7 @@ package io.github.palash201.transmuterenchant;
 
 import dev.drawethree.ultraprisoncore.enchants.UltraPrisonEnchants;
 import dev.drawethree.ultraprisoncore.enchants.enchants.UltraPrisonEnchantment;
+import dev.drawethree.ultraprisoncore.enchants.enchants.implementations.TokenatorEnchant;
 import dev.drawethree.ultraprisoncore.utils.misc.RegionUtils;
 import me.drawethree.ultraprisoncore.libs.worldguardwrapper.region.IWrappedRegion;
 import me.drawethree.ultraprisoncore.libs.worldguardwrapper.selection.ICuboidSelection;
@@ -9,10 +10,14 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 
@@ -24,11 +29,11 @@ public class Transmuter extends UltraPrisonEnchantment {
     /**
      * Class attribute chance - Represent the chance of triggering the enchant
      */
-    private double chance;
-    private int minRadius;
-    private int maxRadius;
-    private int maxLevel;
+    private ConfigurationSection milestones;
     private Material transmuteTo;
+    private static final int INVALID_LEVEL = -1;
+    private static final int DEFAULT_RADIUS = 1;
+    private static final double DEFAULT_CHANCE = 0.1;
 
     /**
      * Constructor of your custom enchant. You can load any parameters after calling super() constructors. Make sure to include unique id!
@@ -79,14 +84,14 @@ public class Transmuter extends UltraPrisonEnchantment {
      */
     @Override
     public void onBlockBreak(BlockBreakEvent e, int enchantLevel) {
-        if (this.chance >= ThreadLocalRandom.current().nextDouble(100.0D)) {
+        if (enchantLevel > 0 && getChance(enchantLevel) >= ThreadLocalRandom.current().nextDouble(100.0D)) {
             Block brokenBlock = e.getBlock();
             IWrappedRegion mineRegion = RegionUtils.getMineRegionWithHighestPriority(brokenBlock.getLocation());
             if (mineRegion != null) {
                 ICuboidSelection mineRegionSelection = (ICuboidSelection) mineRegion.getSelection();
                 Location minLoc = mineRegionSelection.getMinimumPoint();
                 Location maxLoc = mineRegionSelection.getMaximumPoint();
-                int cubeRadius = calculateRadius(minRadius, maxRadius, enchantLevel, maxLevel);
+                int cubeRadius = getRadius(enchantLevel);
                 int centerX = brokenBlock.getX();
                 int centerY = brokenBlock.getY();
                 int centerZ = brokenBlock.getZ();
@@ -154,20 +159,55 @@ public class Transmuter extends UltraPrisonEnchantment {
         }
     }
 
-    private int calculateRadius(int minRadius, int maxRadius, int enchantLevel, int maxLevel) {
-        double portionOfMax = enchantLevel / (double) maxLevel;
-        int difference = maxRadius - minRadius;
-        return (int) (minRadius + Math.floor(difference * portionOfMax));
+    private int getRadius(int enchantLevel) {
+        ConfigurationSection milestone = getMilestone(enchantLevel);
+        if (milestone != null) {
+            return milestone.getInt("Radius", DEFAULT_RADIUS);
+        }
+        Bukkit.getLogger().log(Level.WARNING, "Milestone is null in getRadius() :(");
+        return DEFAULT_RADIUS;
     }
 
+    private double getChance(int enchantLevel) {
+        ConfigurationSection milestone = getMilestone(enchantLevel);
+        if (milestone != null) {
+            return milestone.getDouble("Chance", DEFAULT_CHANCE);
+        }
+        Bukkit.getLogger().log(Level.WARNING, "Milestone is null in getChance() :(");
+        return DEFAULT_CHANCE;
+    }
+
+    private ConfigurationSection getMilestone(int enchantLevel) {
+        List<String> keys = new ArrayList<>(milestones.getKeys(false));
+        int highestMatchFound = INVALID_LEVEL;
+        for (String key : keys) {
+            int level = parseIntOrDefault(key, INVALID_LEVEL);
+            if (level > highestMatchFound && level <= enchantLevel) {
+                highestMatchFound = level;
+            }
+        }
+        if (highestMatchFound > INVALID_LEVEL) {
+            return milestones.getConfigurationSection(""+highestMatchFound);
+        }
+        Bukkit.getLogger().log(Level.WARNING, "No matches found in Milestones :(");
+        return null;
+    }
+
+    private int parseIntOrDefault(String s, int defaultInt) {
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return defaultInt;
+        }
+    }
 
     @Override
     public void reload() {
-        this.chance = this.plugin.getConfig().get().getDouble("enchants." + id + ".Chance");
-        this.minRadius = this.plugin.getConfig().get().getInt("enchants." + id + ".Min-Radius");
-        this.maxRadius = this.plugin.getConfig().get().getInt("enchants." + id + ".Max-Radius");
-        this.maxLevel = this.plugin.getConfig().get().getInt("enchants." + id + ".Max");
-        String materialName = this.plugin.getConfig().get().getString("enchants." + id + ".Transmute-To");
+        this.milestones = plugin.getConfig().get().getConfigurationSection("enchants." + id + ".Milestones");
+        if (milestones == null) {
+            Bukkit.getLogger().log(Level.WARNING, "Milestones is null :(");
+        }
+        String materialName = plugin.getConfig().get().getString("enchants." + id + ".Transmute-To");
         this.transmuteTo = getBlockOrStone(materialName);
     }
 
